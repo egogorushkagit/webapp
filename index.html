@@ -1,1 +1,287 @@
-test
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AliTools WebApp</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            text-align: center;
+            background: #1b1b1b;
+            color: #f2f2f2;
+            padding: 20px 10px;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            margin-bottom: 20px;
+            font-size: 16px;
+            background: #333;
+            color: #eee;
+        }
+
+        input[type="checkbox"] {
+            transform: scale(1.4);
+            margin-right: 10px;
+            margin-bottom: 20px;
+        }
+
+        textarea {
+            width: 100%;
+            max-width: 400px;
+            height: 80px;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            margin-bottom: 20px;
+            font-size: 16px;
+            background: #333;
+            color: #eee;
+        }
+
+        button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #3c9e40;
+        }
+
+        #output {
+            margin-top: 20px;
+            text-align: left;
+            display: inline-block;
+        }
+
+        a {
+            color: #61dafb;
+            text-decoration: none;
+            display: block;
+            margin: 6px 0;
+            font-size: 17px;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        img {
+            max-width: 200px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .timestamp {
+            margin-top: 12px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        #output {
+            width: 90%;
+            margin: 6px 0;
+        }
+
+        .green {
+            color: #90ee90;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- <input type="url" name="url" placeholder="Введіть коротке посилання AliExpress"
+        value="https://s.click.aliexpress.com/e/_EGkftGE" required> -->
+    <div id="getLink">
+        <input type="url" name="url" placeholder="Введіть коротке посилання AliExpress"
+            value="" required>
+        <br>
+        <button id="getLinkData">🔍 Отримати посилання</button>
+    </div>
+    <div id="output"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const params = new URLSearchParams(window.location.search);
+        const ID = params.get('id');
+        if (ID && ID !== "") {
+            document.getElementsByName("url")[0].value = "https://m.aliexpress.com/item/" + ID + ".html";
+        }
+
+        let userID = tg.initDataUnsafe.user.id;
+
+        document.getElementById("getLinkData").addEventListener("click", async (e) => {
+            e.preventDefault();
+
+            const url = document.getElementsByName("url")[0].value.trim();
+            const output = document.getElementById("output");
+            output.innerHTML = "<p>⏳ Обробка запиту...</p>";
+
+            let data = null;
+
+            try {
+                const res = await fetch(`/${userID}/getLink`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                if (!res.ok) throw new Error(`Сервер повернув статус ${res.status}`);
+                data = await res.json();
+                if (data) {
+                    data.product_info = JSON.parse(data.product_info);
+                    //alert(JSON.stringify(data.urlsArr));
+                    data.urls = JSON.parse(data.urlsArr);
+                }
+
+            } catch (err) {
+                console.error("❌ Помилка отримання даних:", err);
+                output.innerHTML = `<p style="color:#ff5555;">❌ Помилка: ${err.message}</p>`;
+                return;
+            }
+
+            if (!data || Object.keys(data).length === 0) {
+                output.innerHTML = "<p>⚠️ Сервер не повернув даних.</p>";
+                return;
+            }
+
+            console.log("✅ Отримані дані:", data);
+
+            // === Вивід даних ===
+            output.innerHTML = "";
+
+            //target_app_sale_price
+
+            links = JSON.parse(data.urlsArr);
+
+            if (data.product_info.product_main_image_url)
+                output.innerHTML += `<div><img src="${data.product_info.product_main_image_url}" alt="Product Image"/></div>`;
+            output.innerHTML += `<div><div><input type="file" name="image" accept="image/*" placeholder="Зображення" multiple /></div></div>`;
+            /*output.innerHTML += `<div><strong>Інформація про ціну:</strong></div>`;
+            output.innerHTML += `<div><strong>(app_sale_price):</strong> <span class="green">${data.product_info.app_sale_price}$</span></div>`;
+            output.innerHTML += `<div><strong>(original_price):</strong> <span class="green">${data.product_info.original_price}$</span></div>`;
+            output.innerHTML += `<div><strong>(target_sale_price):</strong> <span class="green">${data.product_info.target_sale_price}$</span></div>`;
+            output.innerHTML += `<div><strong>(discount):</strong> <span class="green">${data.product_info.discount}</span></div>`;
+            output.innerHTML += `<div><strong>(target_original_price):</strong> <span class="green">${data.product_info.target_original_price}$</span></div>`;
+            output.innerHTML += `<div><strong>(sale_price):</strong> <span class="green">${data.product_info.sale_price}$</span></div>`;
+            output.innerHTML += `<div><strong>(target_app_sale_price):</strong> <span class="green">${data.product_info.target_app_sale_price}$</span></div>`;
+            output.innerHTML += `<div><strong>Інформація про товар:</strong> ${data.product_info.product_title}</div>`;*/
+            output.innerHTML += `<br><div><strong>💰 Знижки за монети:</strong> <a href="${links[0]}" target="_blank">${links[0]}</a></div><br>`;
+            output.innerHTML += `<div><strong>Інформація про магазин:</strong> ${data.product_info.shop_name}<br></div>`;
+
+            output.innerHTML += `<div><textarea name="name">${data.product_info.product_title}</textarea></div>`;
+            output.innerHTML += `<div><input type="text" name="price" placeholder="Ціна від" value="" /></div>`;
+            output.innerHTML += `<div><input type="checkbox" name="approved_price_delivery" />З урахуванням доставки</div>`;
+            output.innerHTML += `<div><input type="text" name="price_after" placeholder="Текст після ціни" value="" /></div>`;
+            output.innerHTML += `<div><input type="text" name="coin_discount" placeholder="Знижка за монети" /></div>`;
+            output.innerHTML += `<div><input type="text" name="text_before_promo" placeholder="Текст перед промокодом" /></div>`;
+            output.innerHTML += `<div><input type="text" name="promo_code" placeholder="Промокод" /></div>`;
+            output.innerHTML += `<div><input type="text" name="coupon" placeholder="Купон" /></div>`;
+            output.innerHTML += `<div><input type="checkbox" name="approved_big_save" />Дозволити Big Save</div>`;
+            output.innerHTML += `<div>Відгуки підписників:</div><div><textarea name="subscribers_reviews"></textarea></div>`;
+            output.innerHTML += `<div>Доповнення:</div><div><textarea name="additions"></textarea></div>`;
+
+
+            /*const labels = [
+                "💰 Знижки за монети",
+                "💻 Посилання для ПК",
+                "📌 Big Save",
+                "📦 Комплекти (3+)",
+                "💎 Грай і заробляй",
+                "🌳 Земля призів",
+                "🔑 Скриньки",
+                "💠 GoGo",
+                "🦄 Bonus"
+            ];
+
+            links = JSON.parse(data.urlsArr);
+            for (let i = 0; i < links.length; i++) {
+                const link = links[i];
+                if (link)
+                    output.innerHTML += `<a href="${link}" target="_blank">${labels[i]}</a>`;
+            }*/
+
+            if (data.created_at)
+                output.innerHTML += `<div class="timestamp">🕒 ${new Date(data.created_at * 1000).toLocaleString()}</div>`;
+
+            output.innerHTML += "<button id='send'>📤 Надіслати в бот</button>";
+
+            document.getElementById("getLink").style.display = "none";
+
+            document.getElementById("send").addEventListener("click", async () => {
+                const name = document.getElementsByName("name")[0].value.trim();
+                const price = document.getElementsByName("price")[0].value.trim();
+                const priceDelivery = document.getElementsByName("approved_price_delivery")[0].checked;
+                const priceAfter = document.getElementsByName("price_after")[0].value.trim();
+                const coinDiscount = document.getElementsByName("coin_discount")[0].value.trim();
+                const promoCode = document.getElementsByName("promo_code")[0].value.trim();
+                const textBeforePromo = document.getElementsByName("text_before_promo")[0].value.trim();
+                const coupon = document.getElementsByName("coupon")[0].value.trim();
+                const imageInput = document.getElementsByName("image")[0];
+                const approved = document.getElementsByName("approved_big_save")[0].checked;
+                const subscribersReviews = document.getElementsByName("subscribers_reviews")[0].value.trim();
+                const additions = document.getElementsByName("additions")[0].value.trim();
+
+                const formData = new FormData();
+                formData.append("good_id", data.good_id);
+                formData.append("name", name);
+                formData.append("price", price);
+                formData.append("price_after", priceAfter);
+                formData.append("approved_price_delivery", priceDelivery);
+                formData.append("coin_discount", coinDiscount);
+                formData.append("promo_code", promoCode);
+                formData.append("text_before_promo", textBeforePromo);
+                formData.append("coupon", coupon);
+                formData.append("product_info", JSON.stringify(data.product_info));
+                formData.append("urls", JSON.stringify(data.urls));
+                formData.append("approved_big_save", approved);
+                formData.append("subscribers_reviews", subscribersReviews);
+                formData.append("additions", additions);
+
+                // підтримка кількох файлів (якщо потрібно)
+                for (let i = 0; i < imageInput.files.length; i++) {
+                    formData.append("image", imageInput.files[i]);
+                }
+                output.innerHTML = "<p>⏳ Обробка запиту...</p>";
+                //console.log("🔍 Надсилання formData:", formData);
+
+                try {
+                    const sendRes = await fetch(`/${userID}/send`, {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!sendRes.ok) { 
+                        throw new Error(`HTTP ${sendRes.status}`); 
+                    } else {
+                        output.innerHTML = "<p style='color:#90ee90;'>✅ Дані надіслано в бот!</p>";
+                        tg.close();
+                    }
+                } catch (err) {
+                    console.error("❌ Помилка відправки:", err);
+                    output.innerHTML += `<p style='color:#ff6666;'>❌ Не вдалося надіслати: ${err.message}</p>`;
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
